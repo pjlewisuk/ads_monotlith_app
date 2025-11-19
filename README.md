@@ -20,6 +20,12 @@ It includes product listing, shopping cart, checkout, and inventory management â
   - `POST /api/checkout`
   - `GET /api/orders/{id}`
 - Health-check endpoint at `/health`
+- **Comprehensive Observability:**
+  - Application Insights integration
+  - OpenTelemetry distributed tracing
+  - Custom metrics and events
+  - Structured logging
+  - Database health checks
 - Ready for decomposition into microservices
 
 ---
@@ -144,6 +150,9 @@ Access the app at `https://localhost:5001` or `http://localhost:5000`.
 | `/`                | Home Page             |
 | `/Products`        | Product catalogue     |
 | `/Cart`            | Shopping cart         |
+| `/Checkout`        | Checkout page         |
+| `/Orders`          | Order history         |
+| `/Orders/Details`  | Order details         |
 | `/api/checkout`    | Checkout API          |
 | `/api/orders/{id}` | Order details API     |
 | `/health`          | Health check endpoint |
@@ -156,3 +165,123 @@ You can override the default connection string by setting the `ConnectionStrings
 | -------------------------------------- | -------------------------- | ---------------- |
 | `ConnectionStrings__DefaultConnection` | Database connection string | LocalDB instance |
 | `ASPNETCORE_ENVIRONMENT`               | Environment mode           | `Development`    |
+| `ApplicationInsights__ConnectionString`| Application Insights connection string | Empty (optional) |
+
+---
+
+## Observability
+
+The application includes comprehensive observability features using **Application Insights** and **OpenTelemetry**.
+
+### Application Insights Configuration
+
+To enable Application Insights telemetry:
+
+1. Create an Application Insights resource in Azure
+2. Copy the connection string from the Azure portal
+3. Add it to `appsettings.json` or set the environment variable:
+
+```json
+{
+  "ApplicationInsights": {
+    "ConnectionString": "InstrumentationKey=...;IngestionEndpoint=https://..."
+  }
+}
+```
+
+Or via environment variable:
+```bash
+export ApplicationInsights__ConnectionString="InstrumentationKey=...;IngestionEndpoint=https://..."
+```
+
+### Telemetry Features
+
+The application automatically collects:
+
+**Automatic Instrumentation:**
+- All HTTP requests and responses
+- Database queries (Entity Framework Core)
+- Dependencies and external calls
+- Exceptions and errors
+
+**Custom Business Events:**
+- `ProductsViewed` - When the product catalog is viewed
+- `ProductViewed` - When a specific product is viewed
+- `AddedToCart` - When a product is added to cart
+- `CartViewed` - When the shopping cart is viewed
+- `CheckoutInitiated` - When checkout process starts
+- `PaymentProcessed` - When payment is processed
+- `OrderCompleted` - When an order is successfully completed
+
+**Custom Metrics:**
+- `OrderValue` - Tracks the value of completed orders
+- `PaymentSuccess` - Counter for successful payments
+- `PaymentFailure` - Counter for failed payments
+
+**Distributed Tracing:**
+- End-to-end tracing across the shopping flow
+- Custom spans for critical operations:
+  - `Checkout` - Overall checkout process
+  - `ReserveInventory` - Inventory management
+  - `ProcessPayment` - Payment processing
+  - `AddToCart` - Cart operations
+
+### Health Checks
+
+The `/health` endpoint provides:
+- Overall application health status
+- Database connectivity check
+- Memory usage monitoring
+
+Access the health check at: `https://localhost:5001/health`
+
+### Monitoring Queries
+
+Use these Kusto queries in Application Insights to analyze telemetry:
+
+**Request Performance:**
+```kusto
+requests
+| where timestamp > ago(1d)
+| summarize avg(duration), percentile(duration, 95) by name
+| order by avg_duration desc
+```
+
+**Checkout Funnel:**
+```kusto
+customEvents
+| where timestamp > ago(7d)
+| where name in ("ProductViewed", "AddedToCart", "CheckoutInitiated", "OrderCompleted")
+| summarize count() by name
+```
+
+**Failed Requests:**
+```kusto
+requests
+| where timestamp > ago(1d)
+| where success == false
+| summarize count() by resultCode, name
+```
+
+**Payment Success Rate:**
+```kusto
+customEvents
+| where timestamp > ago(1d)
+| where name == "PaymentProcessed"
+| summarize 
+    Total = count(),
+    Successful = countif(customDimensions.Success == "true")
+| extend SuccessRate = (Successful * 100.0) / Total
+```
+
+### Logging
+
+The application uses structured logging with context:
+- Correlation IDs are automatically tracked across operations
+- Log levels are configured in `appsettings.json`
+- Logs are sent to Application Insights when configured
+
+**Log Levels:**
+- `Information` - Business events and normal operations
+- `Warning` - Potential issues (e.g., out of stock)
+- `Error` - Errors and exceptions
