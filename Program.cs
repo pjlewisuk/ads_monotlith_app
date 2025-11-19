@@ -20,6 +20,7 @@ builder.Services.AddRazorPages();
 builder.Services.AddScoped<IPaymentGateway, MockPaymentGateway>();
 builder.Services.AddScoped<ICheckoutService, CheckoutService>();
 builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<IChatService, ChatService>();
 
 // Application Insights
 var appInsightsConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
