@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using RetailMonolith.Services;
 using System.Threading.Tasks;
+using System.Diagnostics;
+using Microsoft.ApplicationInsights;
 
 namespace RetailMonolith.Pages.Checkout
 {
@@ -9,11 +11,16 @@ namespace RetailMonolith.Pages.Checkout
     {
         private readonly ICartService _cartService;
         private readonly ICheckoutService _checkoutService;
+        private readonly ILogger<IndexModel> _logger;
+        private readonly TelemetryClient? _telemetryClient;
+        private static readonly ActivitySource ActivitySource = new("RetailMonolith.Pages.Checkout");
         
-        public IndexModel(ICartService cartService, ICheckoutService checkoutService)
+        public IndexModel(ICartService cartService, ICheckoutService checkoutService, ILogger<IndexModel> logger, TelemetryClient? telemetryClient = null)
         {
             _cartService = cartService;
             _checkoutService = checkoutService;
+            _logger = logger;
+            _telemetryClient = telemetryClient;
         }
 
         // For simplicity, using a hardcoded customer ID
@@ -32,21 +39,38 @@ namespace RetailMonolith.Pages.Checkout
             Lines = cart.Lines
                 .Select(line => (line.Name, line.Quantity, line.UnitPrice))
                 .ToList();
+            
+            _logger.LogInformation("Checkout page viewed with {ItemCount} items, total {Total:C}", Lines.Count, Total);
         }
 
         public async Task<IActionResult> OnPostAsync()
         {
+           using var activity = ActivitySource.StartActivity("ProcessCheckout");
+           
            if(!ModelState.IsValid)
            {
                 await OnGetAsync();
                 return Page();
             }
 
-            //perform checkout using MockPaymentGateway
-            var order = await _checkoutService.CheckoutAsync("guest", PaymentToken);
+            try
+            {
+                _logger.LogInformation("Processing checkout for guest customer");
+                
+                //perform checkout using MockPaymentGateway
+                var order = await _checkoutService.CheckoutAsync("guest", PaymentToken);
 
-            // redirect to order confirmation page
-            return Redirect($"/Orders/Details?id={order.Id}");
+                _logger.LogInformation("Checkout successful, redirecting to order {OrderId}", order.Id);
+                
+                // redirect to order confirmation page
+                return Redirect($"/Orders/Details?id={order.Id}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Checkout failed for guest customer");
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                throw;
+            }
         }
     }
 }

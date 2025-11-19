@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using RetailMonolith.Data;
 using RetailMonolith.Services;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Azure.Monitor.OpenTelemetry.Exporter;
 
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DB — localdb for hack; swap to SQL in appsettings for Azure
+// DB ï¿½ localdb for hack; swap to SQL in appsettings for Azure
 builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ??
                    "Server=(localdb)\\MSSQLLocalDB;Database=RetailMonolith;Trusted_Connection=True;MultipleActiveResultSets=true"));
@@ -16,7 +20,53 @@ builder.Services.AddRazorPages();
 builder.Services.AddScoped<IPaymentGateway, MockPaymentGateway>();
 builder.Services.AddScoped<ICheckoutService, CheckoutService>();
 builder.Services.AddScoped<ICartService, CartService>();
-builder.Services.AddHealthChecks();
+
+// Application Insights
+var appInsightsConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
+if (!string.IsNullOrEmpty(appInsightsConnectionString))
+{
+    builder.Services.AddApplicationInsightsTelemetry(options =>
+    {
+        options.ConnectionString = appInsightsConnectionString;
+    });
+}
+
+// OpenTelemetry
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracerProviderBuilder =>
+    {
+        tracerProviderBuilder
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddEntityFrameworkCoreInstrumentation()
+            .AddSource("RetailMonolith.*");
+        
+        if (!string.IsNullOrEmpty(appInsightsConnectionString))
+        {
+            tracerProviderBuilder.AddAzureMonitorTraceExporter(options =>
+            {
+                options.ConnectionString = appInsightsConnectionString;
+            });
+        }
+    })
+    .WithMetrics(meterProviderBuilder =>
+    {
+        meterProviderBuilder
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation();
+        
+        if (!string.IsNullOrEmpty(appInsightsConnectionString))
+        {
+            meterProviderBuilder.AddAzureMonitorMetricExporter(options =>
+            {
+                options.ConnectionString = appInsightsConnectionString;
+            });
+        }
+    });
+
+// Health Checks
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>();
 
 var app = builder.Build();
 
@@ -47,7 +97,7 @@ app.UseAuthorization();
 app.MapRazorPages();
 
 
-// minimal APIs for the “decomp” path
+// minimal APIs for the ï¿½decompï¿½ path
 app.MapPost("/api/checkout", async (ICheckoutService svc) =>
 {
     var order = await svc.CheckoutAsync("guest", "tok_test");
@@ -61,6 +111,9 @@ app.MapGet("/api/orders/{id:int}", async (int id, AppDbContext db) =>
 
     return order is null ? Results.NotFound() : Results.Ok(order);
 });
+
+// Health Check endpoint
+app.MapHealthChecks("/health");
 
 
 app.Run();
