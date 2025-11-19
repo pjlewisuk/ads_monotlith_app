@@ -37,24 +37,33 @@ namespace RetailMonolith.Pages.Chat
             if (string.IsNullOrWhiteSpace(UserMessage))
                 return Page();
 
-            var userId = User.Identity?.Name ?? "guest"; // Use authenticated user if available
-            var response = await _chatService.GetChatResponseAsync(UserMessage, userId);
-
-            // Store conversation in TempData for display
-            var conversation = new List<(string, string, List<Product>?)>();
-            
-            var existingConversation = TempData["Conversation"] as string;
-            if (!string.IsNullOrEmpty(existingConversation))
+            try
             {
-                conversation = System.Text.Json.JsonSerializer.Deserialize<List<(string, string, List<Product>?)>>(existingConversation) ?? new();
-            }
-            
-            conversation.Add(("User", UserMessage, null));
-            conversation.Add(("Assistant", response.Message, response.SuggestedProducts));
-            
-            TempData["Conversation"] = System.Text.Json.JsonSerializer.Serialize(conversation);
+                var userId = User.Identity?.Name ?? "guest"; // Use authenticated user if available
+                var response = await _chatService.GetChatResponseAsync(UserMessage, userId);
 
-            return RedirectToPage();
+                // Store conversation in TempData for display
+                var conversation = new List<(string, string, List<Product>?)>();
+                
+                var existingConversation = TempData["Conversation"] as string;
+                if (!string.IsNullOrEmpty(existingConversation))
+                {
+                    conversation = System.Text.Json.JsonSerializer.Deserialize<List<(string, string, List<Product>?)>>(existingConversation) ?? new();
+                }
+                
+                conversation.Add(("User", UserMessage, null));
+                conversation.Add(("Assistant", response.Message, response.SuggestedProducts));
+                
+                TempData["Conversation"] = System.Text.Json.JsonSerializer.Serialize(conversation);
+
+                return RedirectToPage();
+            }
+            catch (Exception ex)
+            {
+                // Log the error and show a friendly message
+                TempData["ErrorMessage"] = $"An error occurred while processing your message. Please try again. Error: {ex.Message}";
+                return RedirectToPage();
+            }
         }
 
         public async Task<IActionResult> OnPostAddToCartAsync(int productId)

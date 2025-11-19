@@ -13,6 +13,14 @@
     </div>
     <p class="text-muted">Ask me anything about our products!</p>
 
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Error:</strong> @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
     <div class="chat-container bg-light p-3 rounded mb-3" style="height: 500px; overflow-y: auto;" id="chatContainer">
         @if (Model.Conversation.Any())
         {
