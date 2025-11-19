@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using RetailMonolith.Data;
 using RetailMonolith.Services;
+using Microsoft.ApplicationInsights;
 
 namespace RetailMonolith.Pages.Cart
 {
@@ -11,10 +12,14 @@ namespace RetailMonolith.Pages.Cart
        
       
         private readonly ICartService _cartService;
+        private readonly ILogger<IndexModel> _logger;
+        private readonly TelemetryClient? _telemetryClient;
        
-        public IndexModel(ICartService cartService)
+        public IndexModel(ICartService cartService, ILogger<IndexModel> logger, TelemetryClient? telemetryClient = null)
         {
             _cartService = cartService;
+            _logger = logger;
+            _telemetryClient = telemetryClient;
         }
 
 
@@ -33,6 +38,14 @@ namespace RetailMonolith.Pages.Cart
             Lines = cart.Lines
                 .Select(line => (line.Name, line.Quantity, line.UnitPrice))
                 .ToList();
+            
+            _logger.LogInformation("Cart viewed with {ItemCount} items, total value {Total:C}", Lines.Count, Total);
+            
+            _telemetryClient?.TrackEvent("CartViewed", new Dictionary<string, string>
+            {
+                { "ItemCount", Lines.Count.ToString() },
+                { "Total", Total.ToString("F2") }
+            });
         }
 
 
