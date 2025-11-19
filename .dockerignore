@@ -1,0 +1,54 @@
+# Ignore version control files
+.git/
+.gitignore
+.gitattributes
+
+# Ignore build output
+**/bin/
+**/obj/
+**/out/
+**/publish/
+
+# Ignore IDE and editor files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.vsidx
+
+# Ignore NuGet packages
+*.nupkg
+*.snupkg
+packages/
+
+# Ignore development files
+.devcontainer/
+.github/
+
+# Ignore documentation and images
+*.md
+Images/
+docs/
+
+# Ignore test results
+TestResults/
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# Ignore logs
+*.log
+logs/
+Logs/
+
+# Ignore temporary files
+*.tmp
+*.temp
+~$*
+*~
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
