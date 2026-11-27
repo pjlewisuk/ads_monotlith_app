@@ -26,6 +26,13 @@ It includes product listing, shopping cart, checkout, and inventory management �
   - Custom metrics and events
   - Structured logging
   - Database health checks
+- **Production-Ready Containerization:**
+  - Multi-stage Docker build optimized for .NET 9
+  - Docker Compose for local development with SQL Server
+  - Kubernetes manifests for AKS deployment
+  - CI/CD pipeline with GitHub Actions
+  - Security scanning with Trivy
+  - Non-root container execution
 - Ready for decomposition into microservices
 
 ---
@@ -52,7 +59,7 @@ It includes product listing, shopping cart, checkout, and inventory management �
 
 ## Development Setup
 
-You can run and edit this application in three different ways:
+You can run and edit this application in four different ways:
 
 ### 1. Local Development Environment
 
@@ -102,7 +109,41 @@ Develop entirely in the cloud with zero local setup. Codespaces provides a full 
 5. Wait for the environment to initialize
 6. Run `dotnet ef database update` and `dotnet run` in the integrated terminal
 
-All three environments provide the same development experience with the .NET SDK, C# extension, and all necessary tools pre-configured.
+### 4. Docker & Docker Compose
+
+Run the entire application stack (web app + SQL Server) in containers with Docker Compose.
+
+**Prerequisites:**
+- Docker Desktop installed and running
+- Docker Compose v3.8 or later
+
+**Steps:**
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/pjlewisuk/ads_monotlith_app.git
+   cd ads_monotlith_app
+   ```
+
+2. Start the application:
+   ```bash
+   docker-compose up -d
+   ```
+
+3. Access the application at `http://localhost:8080`
+
+4. View logs:
+   ```bash
+   docker-compose logs -f web
+   ```
+
+5. Stop the application:
+   ```bash
+   docker-compose down
+   ```
+
+For more details on containerization, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+All four environments provide a consistent development experience with the .NET SDK, C# extension, and all necessary tools pre-configured.
 
 ---
 
@@ -285,3 +326,87 @@ The application uses structured logging with context:
 - `Information` - Business events and normal operations
 - `Warning` - Potential issues (e.g., out of stock)
 - `Error` - Errors and exceptions
+
+---
+
+## 🚀 Deployment
+
+The application is containerized and ready for deployment to Azure using modern container platforms.
+
+### Container Deployment Options
+
+#### 🐳 Docker
+The application includes a production-optimized multi-stage Dockerfile:
+- **Build Stage:** Uses `mcr.microsoft.com/dotnet/sdk:9.0` for compilation
+- **Runtime Stage:** Uses `mcr.microsoft.com/dotnet/aspnet:9.0-alpine` for minimal size
+- **Security:** Runs as non-root user with restricted capabilities
+- **Health Checks:** Built-in health check endpoint at `/health`
+
+Build and run locally:
+```bash
+docker build -t retailmonolith:latest .
+docker run -p 8080:8080 \
+  -e ConnectionStrings__DefaultConnection="Your-Connection-String" \
+  retailmonolith:latest
+```
+
+#### 📦 Azure Container Apps
+Deploy to Azure Container Apps for serverless container execution:
+```bash
+# Build and push to Azure Container Registry
+az acr build --registry yourregistry --image retailmonolith:latest .
+
+# Deploy to Container Apps
+az containerapp create \
+  --name retailmonolith-app \
+  --resource-group your-rg \
+  --environment your-env \
+  --image yourregistry.azurecr.io/retailmonolith:latest \
+  --target-port 8080 \
+  --ingress external \
+  --env-vars ConnectionStrings__DefaultConnection="Your-Connection-String"
+```
+
+#### ☸️ Azure Kubernetes Service (AKS)
+Deploy to AKS for full Kubernetes orchestration capabilities:
+```bash
+# Apply Kubernetes manifests
+kubectl apply -f k8s/
+
+# Check deployment status
+kubectl get pods -n retailmonolith
+```
+
+The `k8s/` directory includes:
+- **Deployment** - Application pods with health checks and resource limits
+- **Service** - LoadBalancer for external access
+- **HPA** - Horizontal Pod Autoscaler for auto-scaling
+- **Ingress** - HTTPS ingress with cert-manager support
+- **ConfigMap & Secrets** - Configuration and sensitive data management
+
+### CI/CD Pipeline
+
+A GitHub Actions workflow (`.github/workflows/docker-build.yml`) provides:
+- ✅ Automated Docker image builds
+- ✅ Security scanning with Trivy
+- ✅ Push to GitHub Container Registry (GHCR)
+- ✅ Multi-platform support
+- ✅ Automated tagging (branch, PR, SHA, semver)
+
+The workflow runs on:
+- Every push to `main` or `develop` branches
+- Every pull request to `main`
+- Manual workflow dispatch
+
+### Detailed Deployment Guide
+
+For comprehensive deployment instructions, including:
+- Step-by-step Azure setup
+- Database configuration
+- Environment variables
+- Monitoring setup
+- Troubleshooting
+
+See the **[DEPLOYMENT.md](DEPLOYMENT.md)** documentation.
+
+---

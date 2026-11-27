@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: retailmonolith-service
+  namespace: retailmonolith
+  labels:
+    app: retailmonolith
+spec:
+  type: LoadBalancer
+  selector:
+    app: retailmonolith
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  sessionAffinity: None
