@@ -1,0 +1,85 @@
+@page
+@model RetailMonolith.Pages.Chat.IndexModel
+@{
+    ViewData["Title"] = "Shopping Assistant";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2><i class="bi bi-chat-dots"></i> Shopping Assistant</h2>
+        <form method="post" asp-page-handler="ClearConversation">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Clear Chat</button>
+        </form>
+    </div>
+    <p class="text-muted">Ask me anything about our products!</p>
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Error:</strong> @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="chat-container bg-light p-3 rounded mb-3" style="height: 500px; overflow-y: auto;" id="chatContainer">
+        @if (Model.Conversation.Any())
+        {
+            foreach (var (role, message, products) in Model.Conversation)
+            {
+                <div class="mb-3 @(role == "User" ? "text-end" : "")">
+                    <div class="d-inline-block p-2 rounded @(role == "User" ? "bg-primary text-white" : "bg-white border")" style="max-width: 80%;">
+                        <strong>@role:</strong>
+                        <p class="mb-0">@message</p>
+                    </div>
+
+                    @if (products != null && products.Any())
+                    {
+                        <div class="mt-2">
+                            <div class="row">
+                                @foreach (var product in products)
+                                {
+                                    <div class="col-md-4 mb-2">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6 class="card-title">@product.Name</h6>
+                                                <p class="card-text text-muted">@product.Category</p>
+                                                <p class="fw-bold">@product.Price.ToString("C") @product.Currency</p>
+                                                <form method="post" asp-page-handler="AddToCart">
+                                                    <input type="hidden" name="productId" value="@product.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-success">Add to Cart</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <p class="text-muted">Start a conversation! Ask me about products, recommendations, or anything else.</p>
+        }
+    </div>
+
+    <form method="post">
+        <div class="input-group">
+            <input type="text" asp-for="UserMessage" class="form-control" placeholder="Ask me about products..." required />
+            <button type="submit" class="btn btn-primary">Send</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        // Auto-scroll to bottom of chat
+        document.addEventListener('DOMContentLoaded', function() {
+            var chatContainer = document.getElementById('chatContainer');
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        });
+    </script>
+}
